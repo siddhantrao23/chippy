@@ -63,11 +63,11 @@ impl Cpu {
                 self.pc = nnn;
             },
             // skip if equal Vx, nn
-            (0x3, _, _, _) => if(vx == nn) { self.pc += 1; } ,
+            (0x3, _, _, _) => if(vx == nn) { self.pc += 2; },
             // skip if not equal Vx, nn
-            (0x4, _, _, _) => if(vx != nn) { self.pc += 1; } ,
+            (0x4, _, _, _) => if(vx != nn) { self.pc += 2; },
             // skip if equal Vx, Vy
-            (0x5, _, _, _) => if(vx == vy) { self.pc += 1; } ,
+            (0x5, _, _, _) => if(vx == vy) { self.pc += 2; },
             // load Vx, nn
             (0x6, _, _, _) => self.v[x] = nn,
             // add Vx, nn
@@ -98,6 +98,33 @@ impl Cpu {
                 }
                 self.v[x] = res;
             },
+            // right shift Vx
+            (0x8, _, _, 0x6) => {
+                self.v[0xF] = self.v[x] & 0x1;
+                self.v[0xF] = self.v[0xF] >> 1;
+            },
+            // sub Vy, Vx update Vf
+            (0x8, _, _, 0x7) => {
+                let(res, overflow) = self.v[y].overflowing_sub(self.v[x]);
+                match overflow {
+                    true => self.v[0xF] = 0,
+                    false => self.v[0xF] = 1,
+                }
+                self.v[x] = res;
+            },
+            // left shift Vx
+            (0x8, _, _, 0xE) => {
+                self.v[0xF] = self.v[x] & 0x80;
+                self.v[0xF] = self.v[0xF] << 1;
+            },
+            // skip if not equal Vx, Vy
+            (0x9, _, _, _) => if(vx != vy) { self.pc += 2; },
+            // load i, nnn
+            (0xA, _, _, _) => self.i = nnn,
+            // jump nnn + v0
+            (0xB, _, _, _) => self.pc = self.v[0] + nnn as u16,
+            // random
+            (0xC, _, _, _) => self.v[x] = self.rand.random() as u8 & nn,
             // load F, Vx
             (0xF, _, 0x2, 0x9) => self.i = vx as u16 u16 * 5,
             (0xF, _, 0x3, 0x3) => {
