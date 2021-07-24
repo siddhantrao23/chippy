@@ -1,3 +1,6 @@
+use keypad::Keypad;
+use display::Display;
+
 pub struct Cpu {
     // index reg
     pub i: u16,
@@ -26,6 +29,18 @@ fn read_word(memory: [u8; 4096], counter: u16) -> u16 {
 }
 
 impl Cpu {
+    pub fn new() -> Cpu {
+        i: 0,
+        pc: 0,
+        memory: [0; 4096],
+        v: [0; 16],
+        keypad: Keypad::new(),
+        display: Display::new(),
+        stack: [0; 16],
+        sp: 0,
+        dt: 0,
+        st: 0,
+    }
     pub fn execute_cycle(&mut self) {
         let opcode: u16 = read_word(self.memory, self.pc);
         self.process_opcode(opcode);
@@ -124,15 +139,50 @@ impl Cpu {
             // jump nnn + v0
             (0xB, _, _, _) => self.pc = self.v[0] + nnn as u16,
             // random
+            // TODO: fix later
             (0xC, _, _, _) => self.v[x] = self.rand.random() as u8 & nn,
+            // draw Vx, Vy
+            (0xD, _, _, _) => {
+                let collision = self.display.draw(vx as usize, vy as usize,
+                                                  &self.memory[self.i as usize .. (self.i + n as u16) as usize]);
+                self.v[0xF] = if collision { 0 } else { 1 };
+            },
+            // skip if equal key, Vx
+            (0xE, _, 0x9, 0xE) => if(self.keypad.is_keypress(vx)) { self.pc += 2; },
+            // skip if not equal key, Vx
+            (0xE, _, 0xA, 0x1) => if(!self.keypad.is_keypress(vx)) { self.pc += 2; },
+            // load Vx, dt
+            (0xF, _, 0x0, 0x7) => self.v[x] = self.dt;
+            // load Vx, keypress
+            (0xF, _, 0x0, 0xA) => {
+                self.pc = self.pc - 2;
+                for (i, key) in self.keypad.keys.iter().enumerate() {
+                    if *key == true {
+                        self.v[x] = i as u8;
+                        self.pc = self.pc + 2;
+                    }
+                }
+            },
+            // load dt, Vx
+            (0xF, _, 0x1, 0x5) => self.dt = self.v[x],
+            // load st, Vx
+            (0xF, _, 0x1, 0x8) => self.st = self.v[x],
             // load F, Vx
-            (0xF, _, 0x2, 0x9) => self.i = vx as u16 u16 * 5,
+            (0xF, _, 0x1, 0xE) => self.i = self.i + self.v[x] as u16,
+            // load F, Vx
+            (0xF, _, 0x2, 0x9) => self.i = vx as u16 * 5,
+            // load b, Vx
             (0xF, _, 0x3, 0x3) => {
                 self.memory[self.i as usize] = vx / 100;
                 self.memory[self.i + 1 as usize] = (vx / 10) % 10;
                 self.memory[self.i + 2 as usize] = (vx % 100) % 10;
             },
-
+            // load [I], Vx
+            (0xF, _, 0x5, 0x5) => self.memory[(self.i as usize)..(self.i + x as u16 + 1) as usize]
+                        .copy_from_slice(&self.v[0..(x as usize + 1)]),
+            // load Vx, [I]
+            (0xF, _, 0x6, 0x5) =>  self.v[0..(x as usize + 1)]
+                        .copy_from_slice(&self.memory[(self.i as usize)..(self.i + x as u16 + 1) as usize]),
             (_, _, _, _) => ()
         }
     }
