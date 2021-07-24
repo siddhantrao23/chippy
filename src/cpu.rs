@@ -1,5 +1,5 @@
-use keypad::Keypad;
-use display::Display;
+use crate::keypad::Keypad;
+use crate::display::Display;
 
 pub struct Cpu {
     // index reg
@@ -30,17 +30,20 @@ fn read_word(memory: [u8; 4096], counter: u16) -> u16 {
 
 impl Cpu {
     pub fn new() -> Cpu {
-        i: 0,
-        pc: 0,
-        memory: [0; 4096],
-        v: [0; 16],
-        keypad: Keypad::new(),
-        display: Display::new(),
-        stack: [0; 16],
-        sp: 0,
-        dt: 0,
-        st: 0,
+        Cpu {
+            i: 0,
+            pc: 0,
+            memory: [0; 4096],
+            v: [0; 16],
+            keypad: Keypad::new(),
+            display: Display::new(),
+            stack: [0; 16],
+            sp: 0,
+            dt: 0,
+            st: 0,
+        }
     }
+
     pub fn execute_cycle(&mut self) {
         let opcode: u16 = read_word(self.memory, self.pc);
         self.process_opcode(opcode);
@@ -73,16 +76,16 @@ impl Cpu {
             (0x1, _, _, _) => self.pc = nnn,
             // call to nnn
             (0x2, _, _, _) => {
-                self.stack[self.sp] = self.pc;
+                self.stack[self.sp as usize] = self.pc;
                 self.sp = self.sp + 1;
                 self.pc = nnn;
             },
             // skip if equal Vx, nn
-            (0x3, _, _, _) => if(vx == nn) { self.pc += 2; },
+            (0x3, _, _, _) => if vx == nn { self.pc += 2; },
             // skip if not equal Vx, nn
-            (0x4, _, _, _) => if(vx != nn) { self.pc += 2; },
+            (0x4, _, _, _) => if vx != nn { self.pc += 2; },
             // skip if equal Vx, Vy
-            (0x5, _, _, _) => if(vx == vy) { self.pc += 2; },
+            (0x5, _, _, _) => if vx == vy { self.pc += 2; },
             // load Vx, nn
             (0x6, _, _, _) => self.v[x] = nn,
             // add Vx, nn
@@ -133,14 +136,14 @@ impl Cpu {
                 self.v[0xF] = self.v[0xF] << 1;
             },
             // skip if not equal Vx, Vy
-            (0x9, _, _, _) => if(vx != vy) { self.pc += 2; },
+            (0x9, _, _, _) => if vx != vy { self.pc += 2; },
             // load i, nnn
             (0xA, _, _, _) => self.i = nnn,
             // jump nnn + v0
-            (0xB, _, _, _) => self.pc = self.v[0] + nnn as u16,
+            (0xB, _, _, _) => self.pc = nnn + self.v[0] as u16,
             // random
             // TODO: fix later
-            (0xC, _, _, _) => self.v[x] = self.rand.random() as u8 & nn,
+            (0xC, _, _, _) => self.v[x] = 0,//self.rand.random() as u8 & nn,
             // draw Vx, Vy
             (0xD, _, _, _) => {
                 let collision = self.display.draw(vx as usize, vy as usize,
@@ -148,11 +151,11 @@ impl Cpu {
                 self.v[0xF] = if collision { 0 } else { 1 };
             },
             // skip if equal key, Vx
-            (0xE, _, 0x9, 0xE) => if(self.keypad.is_keypress(vx)) { self.pc += 2; },
+            (0xE, _, 0x9, 0xE) => if self.keypad.is_keypress(vx) { self.pc += 2; },
             // skip if not equal key, Vx
-            (0xE, _, 0xA, 0x1) => if(!self.keypad.is_keypress(vx)) { self.pc += 2; },
+            (0xE, _, 0xA, 0x1) => if !self.keypad.is_keypress(vx) { self.pc += 2; },
             // load Vx, dt
-            (0xF, _, 0x0, 0x7) => self.v[x] = self.dt;
+            (0xF, _, 0x0, 0x7) => self.v[x] = self.dt,
             // load Vx, keypress
             (0xF, _, 0x0, 0xA) => {
                 self.pc = self.pc - 2;
@@ -174,15 +177,15 @@ impl Cpu {
             // load b, Vx
             (0xF, _, 0x3, 0x3) => {
                 self.memory[self.i as usize] = vx / 100;
-                self.memory[self.i + 1 as usize] = (vx / 10) % 10;
-                self.memory[self.i + 2 as usize] = (vx % 100) % 10;
+                self.memory[self.i as usize + 1] = (vx / 10) % 10;
+                self.memory[self.i as usize + 2] = (vx % 100) % 10;
             },
             // load [I], Vx
             (0xF, _, 0x5, 0x5) => self.memory[(self.i as usize)..(self.i + x as u16 + 1) as usize]
-                        .copy_from_slice(&self.v[0..(x as usize + 1)]),
+                .copy_from_slice(&self.v[0..(x as usize + 1)]),
             // load Vx, [I]
             (0xF, _, 0x6, 0x5) =>  self.v[0..(x as usize + 1)]
-                        .copy_from_slice(&self.memory[(self.i as usize)..(self.i + x as u16 + 1) as usize]),
+                .copy_from_slice(&self.memory[(self.i as usize)..(self.i + x as u16 + 1) as usize]),
             (_, _, _, _) => ()
         }
     }
