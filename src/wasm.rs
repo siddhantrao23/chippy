@@ -1,16 +1,17 @@
+use wasm_bindgen::prelude::*;
+
 use crate::cpu::Cpu;
 use crate::display::Display;
 use crate::keypad::Keypad;
 
-wasm_bindgen::prelude::*;
-static mut CPU: Cpu = {
+let mut CPU: Cpu = Cpu {
     i: 0,
     pc: 0,
-    memory: [0; 4096],
-    v: [0; 16],
+    memory: vec![0; 4096],
+    v: vec![0; 16],
     keypad: Keypad::new(),
     display: Display::new(),
-    stack: [0; 16],
+    stack: vec![0; 16],
     sp: 0,
     dt: 0,
     st: 0
@@ -21,17 +22,17 @@ static mut CPU: Cpu = {
 pub fn reset() {
 CPU.reset();
 }
-*/
 #[wasm_bindgen]
 pub fn get_memory() -> &'static [u8; 4096] {
     unsafe {
         &CPU.memory
     }
 }
+*/
 
 #[wasm_bindgen]
-pub fn get_memory(&) -> JsValue {
-    JsValue::from_serde(&self.memory).unwrap()
+pub fn get_memory() -> JsValue {
+    JsValue::from_serde(&CPU.memory).unwrap()
 }
 /*
 #[wasm_bindgen]

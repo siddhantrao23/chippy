@@ -1,43 +1,49 @@
+use serde::{Serialize, Deserialize};
+use wasm_bindgen::prelude::*;
+
 use crate::keypad::Keypad;
 use crate::display::Display;
 
+#[wasm_bindgen]
+#[derive(Serialize, Deserialize)]
 pub struct Cpu {
     // index reg
-    pub i: u16,
+    i: u16,
     // program counter
-    pub pc: u16,
+    pc: u16,
     // memory
-    pub memory: [u8; 4096],
+    memory: Vec<u8>,
     // registers
-    pub v: [u8; 16],
+    v: Vec<u8>,
     // peripherals
-    pub keypad: Keypad,
-    pub display: Display,
+    keypad: Keypad,
+    display: Display,
     // stack
-    pub stack: [u16; 16],
+    stack: Vec<u16>,
     // stack pointer
-    pub sp: u8,
+    sp: u8,
     // delay timer
-    pub dt: u8,
+    dt: u8,
     // sound timer
-    pub st: u8,
+    st: u8,
 }
 
-fn read_word(memory: [u8; 4096], counter: u16) -> u16 {
+fn read_word(memory: &Vec<u8>, counter: u16) -> u16 {
     (memory[counter as usize] as u16) << 8
         | (memory[(counter+1) as usize] as u16)
 }
 
+#[wasm_bindgen]
 impl Cpu {
     pub fn new() -> Cpu {
         Cpu {
             i: 0,
             pc: 0,
-            memory: [0; 4096],
-            v: [0; 16],
+            memory: vec![0; 4096],
+            v: vec![0; 16],
             keypad: Keypad::new(),
             display: Display::new(),
-            stack: [0; 16],
+            stack: vec![0; 16],
             sp: 0,
             dt: 0,
             st: 0,
@@ -45,7 +51,7 @@ impl Cpu {
     }
 
     pub fn execute_cycle(&mut self) {
-        let opcode: u16 = read_word(self.memory, self.pc);
+        let opcode: u16 = read_word(&self.memory, self.pc);
         self.process_opcode(opcode);
     }
 
@@ -63,6 +69,9 @@ impl Cpu {
         let nnn = opcode & 0x0FFF;
         let nn = (opcode & 0x00FF) as u8;
         let n = (opcode & 0x000F) as u8;
+
+        // incrememt  pc
+        self.pc += 2;
 
         match (op_1, op_2, op_3, op_4) {
             // clear screen
@@ -151,20 +160,22 @@ impl Cpu {
                 self.v[0xF] = if collision { 0 } else { 1 };
             },
             // skip if equal key, Vx
-            (0xE, _, 0x9, 0xE) => if self.keypad.is_keypress(vx) { self.pc += 2; },
+            (0xE, _, 0x9, 0xE) => if self.keypad.is_key_down(vx) { self.pc += 2; },
             // skip if not equal key, Vx
-            (0xE, _, 0xA, 0x1) => if !self.keypad.is_keypress(vx) { self.pc += 2; },
+            (0xE, _, 0xA, 0x1) => if !self.keypad.is_key_down(vx) { self.pc += 2; },
             // load Vx, dt
             (0xF, _, 0x0, 0x7) => self.v[x] = self.dt,
             // load Vx, keypress
             (0xF, _, 0x0, 0xA) => {
                 self.pc = self.pc - 2;
+                /*
                 for (i, key) in self.keypad.keys.iter().enumerate() {
-                    if *key == true {
+                    if *key == 1 {
                         self.v[x] = i as u8;
                         self.pc = self.pc + 2;
                     }
                 }
+                */
             },
             // load dt, Vx
             (0xF, _, 0x1, 0x5) => self.dt = self.v[x],
@@ -189,4 +200,33 @@ impl Cpu {
             (_, _, _, _) => ()
         }
     }
+
+    pub fn get_memory(&self) -> Vec<u8> {
+        self.memory.clone()
+    }
+
+    pub fn key_down(&mut self, i: u8) {
+        self.keypad.key_down(i);
+    }
+
+    pub fn key_up(&mut self, i: u8) {
+        self.keypad.key_up(i);
+    }
+
+    pub fn get_registers(&self) -> Vec<u8> {
+        self.v.clone()
+    }
+
+    pub fn get_index_register(&self) -> u16 {
+        self.i
+    }
+
+    pub fn get_program_counter(&self) -> u16 {
+        self.pc
+    }
 }
+
+// TODO
+//  add random
+//  implement serde
+//  fix keys iter
