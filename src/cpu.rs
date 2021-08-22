@@ -1,11 +1,9 @@
-use serde::{Serialize, Deserialize};
 use wasm_bindgen::prelude::*;
 
 use crate::keypad::Keypad;
-use crate::display::Display;
+use crate::display::{Display,FONT_SET};
 
 #[wasm_bindgen]
-#[derive(Serialize, Deserialize)]
 pub struct Cpu {
     // index reg
     i: u16,
@@ -50,13 +48,34 @@ impl Cpu {
         }
     }
 
+    pub fn reset(&mut self) {
+        self.i = 0;
+        self.pc =  0;
+        self.memory.clear();
+        self.v.clear();
+        self.display.cls();
+        for i in 0..80 {
+            self.memory[i] = FONT_SET[i];
+        }
+        self.stack.clear();
+        self.sp = 0;
+        self.dt = 0;
+        self.st = 0;
+    }
+
     pub fn execute_cycle(&mut self) {
         let opcode: u16 = read_word(&self.memory, self.pc);
         self.process_opcode(opcode);
     }
 
+    pub fn decrement_timers(&mut self) {
+        if self.dt > 0 {
+            self.dt -= 1;
+        }
+    }
+
     // fetch and decode
-    pub fn process_opcode(&mut self, opcode: u16) {
+    fn process_opcode(&mut self, opcode: u16) {
         let op_1 = (opcode & 0xF000) >> 12;
         let op_2 = (opcode & 0x0F00) >> 8;
         let op_3 = (opcode & 0x00F0) >> 4;
@@ -170,12 +189,12 @@ impl Cpu {
                 self.pc = self.pc - 2;
                 /*
                 for (i, key) in self.keypad.keys.iter().enumerate() {
-                    if *key == 1 {
-                        self.v[x] = i as u8;
-                        self.pc = self.pc + 2;
-                    }
-                }
-                */
+                if *key == 1 {
+                self.v[x] = i as u8;
+                self.pc = self.pc + 2;
+            }
+            }
+                 */
             },
             // load dt, Vx
             (0xF, _, 0x1, 0x5) => self.dt = self.v[x],
@@ -228,5 +247,8 @@ impl Cpu {
 
 // TODO
 //  add random
-//  implement serde
 //  fix keys iter
+//  figure out interface and separate stuff
+//  program counter
+//  ui design
+//  finish javascript

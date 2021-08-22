@@ -1,8 +1,6 @@
-use serde::{Serialize, Deserialize};
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
-#[derive(Serialize, Deserialize)]
 pub struct Keypad {
     keys: Vec<u8>
 }

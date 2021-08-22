@@ -1,4 +1,3 @@
-use serde::{Serialize, Deserialize};
 use wasm_bindgen::prelude::*;
 
 // resolution of display
@@ -6,7 +5,6 @@ const WIDTH: usize = 64;
 const HEIGHT: usize = 32;
 
 #[wasm_bindgen]
-#[derive(Serialize, Deserialize)]
 pub struct Display  {
     memory: Vec<u8>
 }
